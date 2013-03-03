@@ -59,12 +59,17 @@
                                     s->priority2[(irq) - GIC_INTERNAL])
 #define GIC_TARGET(irq) s->irq_target[irq]
 
+#define GIC_SET_SECURE(irq, cm) s->irq_state[irq].secure |= (cm)
+#define GIC_CLEAR_SECURE(irq, cm) s->irq_state[irq].secure &= ~(cm)
+#define GIC_TEST_SECURE(irq, cm) ((s->irq_state[irq].secure & (cm)) != 0)
+
 typedef struct gic_irq_state {
     /* The enable bits are only banked for per-cpu interrupts.  */
     uint8_t enabled;
     uint8_t pending;
     uint8_t active;
     uint8_t level;
+    uint8_t secure;
     bool model; /* 0 = N:N, 1 = 1:N */
     bool trigger; /* nonzero = edge triggered.  */
 } gic_irq_state;
@@ -75,6 +80,7 @@ typedef struct GICState {
     /*< public >*/
 
     qemu_irq parent_irq[NCPU];
+    qemu_irq parent_fiq[NCPU];
     bool enabled;
     bool cpu_enabled[NCPU];
 

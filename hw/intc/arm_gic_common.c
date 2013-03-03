@@ -43,13 +43,14 @@ static int gic_post_load(void *opaque, int version_id)
 
 static const VMStateDescription vmstate_gic_irq_state = {
     .name = "arm_gic_irq_state",
-    .version_id = 1,
-    .minimum_version_id = 1,
+    .version_id = 2,
+    .minimum_version_id = 2,
     .fields = (VMStateField[]) {
         VMSTATE_UINT8(enabled, gic_irq_state),
         VMSTATE_UINT8(pending, gic_irq_state),
         VMSTATE_UINT8(active, gic_irq_state),
         VMSTATE_UINT8(level, gic_irq_state),
+        VMSTATE_UINT8(secure, gic_irq_state),
         VMSTATE_BOOL(model, gic_irq_state),
         VMSTATE_BOOL(trigger, gic_irq_state),
         VMSTATE_END_OF_LIST()
@@ -127,6 +128,10 @@ static void arm_gic_common_reset(DeviceState *dev)
     for (i = 0; i < 16; i++) {
         GIC_SET_ENABLED(i, ALL_CPU_MASK);
         GIC_SET_TRIGGER(i);
+    }
+    for (i = 0; i < GIC_MAXIRQ; ++i) {
+        /* NOTE: TrustZone: Assume that all IRQs are secure */
+        GIC_SET_SECURE(i, ALL_CPU_MASK);
     }
     if (s->num_cpu == 1) {
         /* For uniprocessor GICs all interrupts always target the sole CPU */
