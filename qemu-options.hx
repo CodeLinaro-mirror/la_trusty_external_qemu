@@ -2361,6 +2361,14 @@ Use @var{file1} and @var{file2} as modules and pass arg=foo as parameter to the
 first module.
 ETEXI
 
+DEF("tz", HAS_ARG, QEMU_OPTION_tz, \
+    "-tz     file    use 'file' as TrustZone image (ARM only)\n", QEMU_ARCH_ARM)
+STEXI
+@item -tz @var{file}
+@findex -tz (ARM)
+Use @var{tz} as TrustZone image. ARM only.
+ETEXI
+
 DEF("dtb", HAS_ARG, QEMU_OPTION_dtb, \
     "-dtb    file    use 'file' as device tree image\n", QEMU_ARCH_ALL)
 STEXI

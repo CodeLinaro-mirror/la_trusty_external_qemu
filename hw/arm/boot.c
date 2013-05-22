@@ -348,9 +348,12 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
     int initrd_size;
     int n;
     int is_linux = 0;
+    int is_tz = 0;
     uint64_t elf_entry;
+    uint64_t tz_elf_entry;
     hwaddr entry;
     int big_endian;
+    QemuOpts *machine_opts;
 
     /* Load the kernel.  */
     if (!info->kernel_filename) {
@@ -358,7 +361,9 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
         exit(1);
     }
 
-    info->dtb_filename = qemu_opt_get(qemu_get_machine_opts(), "dtb");
+    machine_opts = qemu_get_machine_opts();
+    info->dtb_filename = qemu_opt_get(machine_opts, "dtb");
+    info->tz_filename = qemu_opt_get(machine_opts, "tz");
 
     if (!info->secondary_cpu_reset_hook) {
         info->secondary_cpu_reset_hook = default_reset_secondary;
@@ -388,6 +393,14 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
      */
     info->initrd_start = info->loader_start +
         MIN(info->ram_size / 2, 128 * 1024 * 1024);
+
+    /* Try to load our TZ image first. If it exists, we'll use that as
+     * the main entry and the kernel as secondary.
+     */
+    if (load_elf(info->tz_filename, NULL, NULL, &tz_elf_entry,
+                 NULL, NULL, big_endian, ELF_MACHINE, 1) >= 0) {
+        is_tz = 1;
+    }
 
     /* Assume that raw images are linux kernels, and ELF images are not.  */
     kernel_size = load_elf(info->kernel_filename, NULL, NULL, &elf_entry,
@@ -446,9 +459,9 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
             if (load_dtb(dtb_start, info)) {
                 exit(1);
             }
-            bootloader[5] = dtb_start;
+            bootloader[6] = dtb_start;
         } else {
-            bootloader[5] = info->loader_start + KERNEL_ARGS_ADDR;
+            bootloader[6] = info->loader_start + KERNEL_ARGS_ADDR;
             if (info->ram_size >= (1ULL << 32)) {
                 fprintf(stderr, "qemu: RAM size must be less than 4GB to boot"
                         " Linux kernel using ATAGS (try passing a device tree"
@@ -456,7 +469,11 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
                 exit(1);
             }
         }
-        bootloader[6] = entry;
+        if (is_tz) {
+            bootloader[6] = tz_elf_entry;
+        } else {
+            bootloader[6] = entry;
+        }
         for (n = 0; n < sizeof(bootloader) / 4; n++) {
             bootloader[n] = tswap32(bootloader[n]);
         }
