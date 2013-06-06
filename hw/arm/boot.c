@@ -20,15 +20,39 @@
 #define KERNEL_ARGS_ADDR 0x100
 #define KERNEL_LOAD_ADDR 0x00010000
 
-/* The worlds second smallest bootloader.  Set r0-r2, then jump to kernel.  */
 static uint32_t bootloader[] = {
+  0xe59f0028, /* ldr     r0, [pc, #40] */
+  0xe59f1028, /* ldr     r1, [pc, #40] */
+  0xe59f2028, /* ldr     r2, [pc, #40] */
+  0xe59fc028, /* ldr     ip, [pc, #40] */
+  0xe12fff3c, /* blx     ip */
+
+  /* The worlds second smallest bootloader.  Set r0-r2, then jump to kernel.  */
   0xe3a00000, /* mov     r0, #0 */
   0xe59f1004, /* ldr     r1, [pc, #4] */
   0xe59f2004, /* ldr     r2, [pc, #4] */
   0xe59ff004, /* ldr     pc, [pc, #4] */
   0, /* Board ID */
   0, /* Address of kernel args.  Set by integratorcp_init.  */
-  0  /* Kernel entry point.  Set by integratorcp_init.  */
+  0, /* Kernel entry point.  Set by integratorcp_init.  */
+
+  /* TZ args */
+  0, /* For TZ, indicates cold boot */
+  0, /* Args for TZ */
+  0, /* Args for TZ */
+  0  /* tz entry point. */
+};
+
+enum {
+  BOOTLOADER_INDEX_KERNEL_START = 5,
+  BOOTLOADER_INDEX_KERNEL_R1 = BOOTLOADER_INDEX_KERNEL_START + 4,
+  BOOTLOADER_INDEX_KERNEL_R2,
+  BOOTLOADER_INDEX_KERNEL_PC,
+  BOOTLOADER_INDEX_KERNEL_END,
+  BOOTLOADER_INDEX_TZ_R0 = BOOTLOADER_INDEX_KERNEL_END,
+  BOOTLOADER_INDEX_TZ_R1,
+  BOOTLOADER_INDEX_TZ_R2,
+  BOOTLOADER_INDEX_TZ_PC,
 };
 
 /* Handling for secondary CPU boot in a multicore system.
@@ -354,6 +378,8 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
     hwaddr entry;
     int big_endian;
     QemuOpts *machine_opts;
+    uint32_t *bootloader_start;
+    size_t bootloader_size;
 
     /* Load the kernel.  */
     if (!info->kernel_filename) {
@@ -444,7 +470,7 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
         }
         info->initrd_size = initrd_size;
 
-        bootloader[4] = info->board_id;
+        bootloader[BOOTLOADER_INDEX_KERNEL_R1] = info->board_id;
 
         /* for device tree boot, we pass the DTB directly in r2. Otherwise
          * we point to the kernel args.
@@ -459,9 +485,10 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
             if (load_dtb(dtb_start, info)) {
                 exit(1);
             }
-            bootloader[6] = dtb_start;
+            bootloader[BOOTLOADER_INDEX_KERNEL_R2] = dtb_start;
         } else {
-            bootloader[6] = info->loader_start + KERNEL_ARGS_ADDR;
+            bootloader[BOOTLOADER_INDEX_KERNEL_R2] =
+                info->loader_start + KERNEL_ARGS_ADDR;
             if (info->ram_size >= (1ULL << 32)) {
                 fprintf(stderr, "qemu: RAM size must be less than 4GB to boot"
                         " Linux kernel using ATAGS (try passing a device tree"
@@ -469,15 +496,22 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
                 exit(1);
             }
         }
+        bootloader[BOOTLOADER_INDEX_KERNEL_PC] = entry;
         if (is_tz) {
-            bootloader[6] = tz_elf_entry;
+            bootloader[BOOTLOADER_INDEX_TZ_R0] = 1; // coldboot
+            bootloader[BOOTLOADER_INDEX_TZ_PC] = tz_elf_entry;
+            bootloader_start = bootloader;
+            bootloader_size = sizeof(bootloader);
         } else {
-            bootloader[6] = entry;
+            bootloader_start = &bootloader[BOOTLOADER_INDEX_KERNEL_START];
+            bootloader_size =
+                (BOOTLOADER_INDEX_KERNEL_END - BOOTLOADER_INDEX_KERNEL_START) *
+                sizeof(bootloader[0]);
         }
-        for (n = 0; n < sizeof(bootloader) / 4; n++) {
-            bootloader[n] = tswap32(bootloader[n]);
+        for (n = 0; n < bootloader_size / 4; n++) {
+            bootloader_start[n] = tswap32(bootloader_start[n]);
         }
-        rom_add_blob_fixed("bootloader", bootloader, sizeof(bootloader),
+        rom_add_blob_fixed("bootloader", bootloader_start, bootloader_size,
                            info->loader_start);
         if (info->nb_cpus > 1) {
             info->write_secondary_boot(cpu, info);
