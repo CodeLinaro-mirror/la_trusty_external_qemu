@@ -521,6 +521,9 @@ static uint32_t gic_dist_readw(void *opaque, hwaddr offset)
 
 static uint32_t gic_dist_readl(void *opaque, hwaddr offset)
 {
+#ifdef DEBUG_GIC
+    GICState *s = (GICState *)opaque;
+#endif
     uint32_t val;
 
     if (offset == 0xF00) {
