@@ -58,10 +58,8 @@ static inline int gic_is_secure_access(GICState *s)
 /* Update interrupt status after enabled or pending bits have been changed.  */
 static void gic_update_simple(GICState *s, int cpu)
 {
-    int best_irq;
     int best_prio;
     int irq;
-    int level;
     int cm = 1 << cpu;
 
     s->current_pending[cpu] = 1023;
@@ -70,13 +68,11 @@ static void gic_update_simple(GICState *s, int cpu)
         return;
     }
     best_prio = 0x100;
-    best_irq = 1023;
 
     for (irq = 0; irq < s->num_irq; irq++) {
         if (GIC_TEST_ENABLED(irq, cm) && GIC_TEST_PENDING(irq, cm)) {
             if (GIC_GET_PRIORITY(irq, cpu) < best_prio) {
                 best_prio = GIC_GET_PRIORITY(irq, cpu);
-                best_irq = irq;
             }
          }
     }
