@@ -19,6 +19,10 @@ typedef struct DisasContext {
     int bswap_code;
 #if !defined(CONFIG_USER_ONLY)
     int user;
+    /* Nonzero if code is to be translated with normal world privileges. */
+    int nwd_priv;
+    /* Nonzero if coprocessor operations target the normal world bank. */
+    int nwd_cpacc;
 #endif
     int vfp_enabled;
     int vec_len;
