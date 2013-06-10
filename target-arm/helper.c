@@ -2067,6 +2067,18 @@ void cpsr_write(CPUARMState *env, uint32_t val, uint32_t mask)
         env->GE = (val >> 16) & 0xf;
     }
 
+    /* Honor SCR.FW/SCR.AW in normal world. We need to check the security status
+     * before the mode switch to properly handle transitions from secure monitor mode
+     * to normal world. */
+    if (arm_feature(env, ARM_FEATURE_TRUSTZONE) && !arm_current_secure(env)) {
+        if (!(env->cp15.c1_scr & SCR_FW)) {
+            mask &= ~CPSR_F;
+        }
+        if (!(env->cp15.c1_scr & SCR_AW)) {
+            mask &= ~CPSR_A;
+        }
+    }
+
     if ((env->uncached_cpsr ^ val) & mask & CPSR_M) {
         if (bad_mode_switch(env, val & CPSR_M)) {
             /* Attempt to switch to an invalid mode: this is UNPREDICTABLE.
@@ -2522,7 +2534,7 @@ void arm_cpu_do_interrupt(CPUState *cs)
             return;
         }
         if ((env->uncached_cpsr & CPSR_M) == ARM_CPU_MODE_SMC) {
-            env->cp15.c1_scr &= ~1;
+            env->cp15.c1_scr &= ~SCR_NS;
         }
         offset = env->thumb ? 2 : 0;
         new_mode = ARM_CPU_MODE_SMC;
@@ -2534,6 +2546,15 @@ void arm_cpu_do_interrupt(CPUState *cs)
         return; /* Never happens.  Keep compiler happy.  */
     }
     if (arm_feature(env, ARM_FEATURE_TRUSTZONE)) {
+        if (new_mode != ARM_CPU_MODE_SMC && (env->cp15.c1_scr & SCR_NS)) {
+            /* Honor SCR.AW/SCR.FW in normal world */
+            if (!(env->cp15.c1_scr & SCR_FW)) {
+                mask &= ~CPSR_F;
+            }
+            if (!(env->cp15.c1_scr & SCR_AW)) {
+                mask &= ~CPSR_A;
+            }
+        }
         if (new_mode == ARM_CPU_MODE_SMC ||
             (env->uncached_cpsr & CPSR_M) == ARM_CPU_MODE_SMC) {
             addr += env->cp15.c12_mvbar;
