@@ -848,6 +848,12 @@ static void arm_any_initfn(Object *obj)
 #endif
     cpu->midr = 0xffffffff;
 }
+
+static void arm_any_trustzone_initfn(Object *obj)
+{
+    arm_any_initfn(obj);
+    set_feature(&ARM_CPU(obj)->env, ARM_FEATURE_TRUSTZONE);
+}
 #endif
 
 #endif /* !defined(CONFIG_USER_ONLY) || !defined(TARGET_AARCH64) */
@@ -893,6 +899,7 @@ static const ARMCPUInfo arm_cpus[] = {
     { .name = "pxa270-c0",   .initfn = pxa270c0_initfn },
     { .name = "pxa270-c5",   .initfn = pxa270c5_initfn },
 #ifdef CONFIG_USER_ONLY
+    { .name = "trustzone",   .initfn = arm_any_trustzone_initfn },
     { .name = "any",         .initfn = arm_any_initfn },
 #endif
 #endif
