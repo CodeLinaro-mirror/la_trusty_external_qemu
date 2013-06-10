@@ -1896,8 +1896,9 @@ CpuDefinitionInfoList *arch_query_cpu_definitions(Error **errp)
     return cpu_list;
 }
 
-void define_one_arm_cp_reg_with_opaque(ARMCPU *cpu,
-                                       const ARMCPRegInfo *r, void *opaque)
+static void define_one_arm_cp_reg_bank(ARMCPU *cpu,
+                                       const ARMCPRegInfo *r, void *opaque,
+                                       int bank)
 {
     /* Define implementations of coprocessor registers.
      * We store these in a hashtable because typically
@@ -1939,7 +1940,7 @@ void define_one_arm_cp_reg_with_opaque(ARMCPU *cpu,
                 uint32_t *key = g_new(uint32_t, 1);
                 ARMCPRegInfo *r2 = g_memdup(r, sizeof(ARMCPRegInfo));
                 int is64 = (r->type & ARM_CP_64BIT) ? 1 : 0;
-                *key = ENCODE_CP_REG(r->cp, is64, r->crn, crm, opc1, opc2);
+                *key = ENCODE_CP_REG(bank, r->cp, is64, r->crn, crm, opc1, opc2);
                 if (opaque) {
                     r2->opaque = opaque;
                 }
@@ -1962,6 +1963,22 @@ void define_one_arm_cp_reg_with_opaque(ARMCPU *cpu,
                     r2->type |= ARM_CP_NO_MIGRATE;
                 }
 
+                /* Decode secure/normal world banks */
+                if ((r->type & ARM_CP_BANKED) == ARM_CP_BANKED) {
+                    int is_secure = (bank == 0);
+                    if (is_secure) {
+                        /* Secure world instance (clear BANKED bit, offset at 0) */
+                        r2->type = r->type & ~ARM_CP_BANKED;
+
+                    } else {
+                        /* Normal world instance (keep BANKED bit, adjust offset) */
+                        if (r->fieldoffset) {
+                            size_t delta = is64 ? sizeof(uint64_t) : sizeof(uint32_t);
+                            r2->fieldoffset += delta;
+                        }
+                    }
+                }
+
                 /* Overriding of an existing definition must be explicitly
                  * requested.
                  */
@@ -1981,6 +1998,13 @@ void define_one_arm_cp_reg_with_opaque(ARMCPU *cpu,
             }
         }
     }
+}
+
+void define_one_arm_cp_reg_with_opaque(ARMCPU *cpu,
+                                       const ARMCPRegInfo *r, void *opaque)
+{
+  define_one_arm_cp_reg_bank(cpu, r, opaque, 0); /* Bank 0: Secure World */
+  define_one_arm_cp_reg_bank(cpu, r, opaque, 1); /* Bank 1: Normal World */
 }
 
 void define_arm_cp_regs_with_opaque(ARMCPU *cpu,
