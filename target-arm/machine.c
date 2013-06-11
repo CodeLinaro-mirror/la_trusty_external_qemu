@@ -124,6 +124,29 @@ static const VMStateDescription vmstate_thumb2ee = {
     }
 };
 
+static bool normal_world_needed(void *opaque)
+{
+    ARMCPU *cpu = opaque;
+    CPUARMState *env = &cpu->env;
+
+    return arm_feature(env, ARM_FEATURE_TRUSTZONE);
+}
+
+static const VMStateDescription vmstate_normal_world = {
+    .name = "cpu/nwd",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .minimum_version_id_old = 1,
+    .fields = (VMStateField[]) {
+        VMSTATE_UINT32(env.cp15.c13_context.normal, ARMCPU),
+        VMSTATE_UINT32(env.cp15.c13_tls1.normal, ARMCPU),
+        VMSTATE_UINT32(env.cp15.c13_tls2.normal, ARMCPU),
+        VMSTATE_UINT32(env.cp15.c13_tls3.normal, ARMCPU),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
+
 static int get_cpsr(QEMUFile *f, void *opaque, size_t size)
 {
     ARMCPU *cpu = opaque;
@@ -274,6 +297,9 @@ const VMStateDescription vmstate_arm_cpu = {
         } , {
             .vmsd = &vmstate_thumb2ee,
             .needed = thumb2ee_needed,
+        } , {
+            .vmsd = &vmstate_normal_world,
+            .needed = normal_world_needed,
         } , {
             /* empty */
         }

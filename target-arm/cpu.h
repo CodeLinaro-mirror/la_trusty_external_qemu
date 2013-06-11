@@ -195,10 +195,10 @@ typedef struct CPUARMState {
         arm_banked32_t c12_vbar; /* secure/nonsecure vector base address register. */
         uint32_t c12_mvbar; /* monitor vector base address register. */
         uint32_t c13_fcse; /* FCSE PID.  */
-        uint32_t c13_context; /* Context ID.  */
-        uint32_t c13_tls1; /* User RW Thread register.  */
-        uint32_t c13_tls2; /* User RO Thread register.  */
-        uint32_t c13_tls3; /* Privileged Thread register.  */
+        arm_banked32_t c13_context; /* Context ID.  */
+        arm_banked32_t c13_tls1; /* User RW Thread register.  */
+        arm_banked32_t c13_tls2; /* User RO Thread register.  */
+        arm_banked32_t c13_tls3; /* Privileged Thread register.  */
         uint32_t c14_cntfrq; /* Counter Frequency register */
         uint32_t c14_cntkctl; /* Timer Control register */
         ARMGenericTimer c14_timer[NUM_GTIMERS];
