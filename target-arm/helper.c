@@ -1538,7 +1538,8 @@ static const ARMCPRegInfo trustzone_cp_reginfo[] = {
 
 static int sctlr_write(CPUARMState *env, const ARMCPRegInfo *ri, uint64_t value)
 {
-    env->cp15.c1_sys = value;
+    /* We currently treat all (unimplemented) bits as banked bits. */
+    CPREG_FIELD32(env, ri) = value;
     /* ??? Lots of these bits are not implemented.  */
     /* This may enable/disable the MMU, so do a TLB flush.  */
     tlb_flush(env, 1);
@@ -1772,7 +1773,7 @@ void register_cp_regs_for_features(ARMCPU *cpu)
             .name = "SCTLR", .cp = 15, .crn = 1, .crm = 0, .opc1 = 0, .opc2 = 0,
             .access = PL1_RW, .fieldoffset = offsetof(CPUARMState, cp15.c1_sys),
             .writefn = sctlr_write, .resetvalue = cpu->reset_sctlr,
-            .raw_writefn = raw_write,
+            .raw_writefn = raw_write, .type = ARM_CP_BANKED
         };
         if (arm_feature(env, ARM_FEATURE_XSCALE)) {
             /* Normally we would always end the TB on an SCTLR write, but Linux
@@ -2578,8 +2579,8 @@ void arm_cpu_do_interrupt(CPUState *cs)
         cpu_abort(env, "Unhandled exception 0x%x\n", env->exception_index);
         return; /* Never happens.  Keep compiler happy.  */
     }
+    int to_secure = (new_mode == ARM_CPU_MODE_SMC) || !(env->cp15.c1_scr & SCR_NS);
     if (arm_feature(env, ARM_FEATURE_TRUSTZONE)) {
-        int to_secure = (new_mode == ARM_CPU_MODE_SMC) || !(env->cp15.c1_scr & SCR_NS);
         if (!to_secure) {
             /* Honor SCR.AW/SCR.FW in normal world */
             if (!(env->cp15.c1_scr & SCR_FW)) {
@@ -2593,7 +2594,7 @@ void arm_cpu_do_interrupt(CPUState *cs)
             (env->uncached_cpsr & CPSR_M) == ARM_CPU_MODE_SMC) {
             addr += env->cp15.c12_mvbar;
         } else {
-            if (env->cp15.c1_sys & (1 << 13)) {
+            if (CP15_BANK32(env, c1_sys, to_secure) & (1 << 13)) {
                 addr += 0xffff0000;
             } else {
                 addr += CP15_BANK32(env, c12_vbar, to_secure);
@@ -2601,7 +2602,7 @@ void arm_cpu_do_interrupt(CPUState *cs)
         }
     } else {
         /* High vectors.  */
-        if (env->cp15.c1_sys & (1 << 13)) {
+        if (CP15_BANK32(env, c1_sys, to_secure) & (1 << 13)) {
             addr += 0xffff0000;
         }
     }
@@ -2615,7 +2616,7 @@ void arm_cpu_do_interrupt(CPUState *cs)
     /* this is a lie, as the was no c1_sys on V4T/V5, but who cares
      * and we should just guard the thumb mode on V4 */
     if (arm_feature(env, ARM_FEATURE_V4T)) {
-        env->thumb = (env->cp15.c1_sys & (1 << 30)) != 0;
+        env->thumb = (CP15_BANK32(env, c1_sys, to_secure) & (1 << 30)) != 0;
     }
     env->regs[14] = env->regs[15] + offset;
     env->regs[15] = addr;
@@ -2628,6 +2629,7 @@ void arm_cpu_do_interrupt(CPUState *cs)
 static inline int check_ap(CPUARMState *env, int ap, int domain_prot,
                            int access_type, int is_user)
 {
+  int core_is_secure = arm_current_secure(env);
   int prot_ro;
 
   if (domain_prot == 3) {
@@ -2643,7 +2645,7 @@ static inline int check_ap(CPUARMState *env, int ap, int domain_prot,
   case 0:
       if (access_type == 1)
           return 0;
-      switch ((env->cp15.c1_sys >> 8) & 3) {
+      switch ((CP15_BANK32(env, c1_sys, core_is_secure) >> 8) & 3) {
       case 1:
           return is_user ? 0 : PAGE_READ;
       case 2:
@@ -2797,6 +2799,7 @@ static int get_phys_addr_v6(CPUARMState *env, uint32_t address, int access_type,
     int domain = 0;
     int domain_prot;
     hwaddr phys_addr;
+    int core_is_secure = arm_current_secure(env);
 
     /* Pagetable walk.  */
     /* Lookup l1 descriptor.  */
@@ -2875,7 +2878,7 @@ static int get_phys_addr_v6(CPUARMState *env, uint32_t address, int access_type,
             goto do_fault;
 
         /* The simplified model uses AP[0] as an access control bit.  */
-        if ((env->cp15.c1_sys & (1 << 29)) && (ap & 1) == 0) {
+        if ((CP15_BANK32(env, c1_sys, core_is_secure) & (1 << 29)) && (ap & 1) == 0) {
             /* Access flag fault.  */
             code = (code == 15) ? 6 : 3;
             goto do_fault;
@@ -3169,7 +3172,7 @@ static inline int get_phys_addr(CPUARMState *env, uint32_t address,
     if (address < 0x02000000)
         address += CP15_BANK32(env, c13_fcse, is_secure);
 
-    if ((env->cp15.c1_sys & 1) == 0) {
+    if ((CP15_BANK32(env, c1_sys, is_secure) & 1) == 0) {
         /* MMU/MPU disabled.  */
         *phys_ptr = address;
         *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
@@ -3182,7 +3185,7 @@ static inline int get_phys_addr(CPUARMState *env, uint32_t address,
     } else if (extended_addresses_enabled(env)) {
         return get_phys_addr_lpae(env, address, access_type, is_user, phys_ptr,
                                   prot, page_size);
-    } else if (env->cp15.c1_sys & (1 << 23)) {
+    } else if (CP15_BANK32(env, c1_sys, is_secure) & (1 << 23)) {
         return get_phys_addr_v6(env, address, access_type, is_user, phys_ptr,
                                 prot, page_size);
     } else {

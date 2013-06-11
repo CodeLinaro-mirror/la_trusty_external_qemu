@@ -138,6 +138,7 @@ static const VMStateDescription vmstate_normal_world = {
     .minimum_version_id = 1,
     .minimum_version_id_old = 1,
     .fields = (VMStateField[]) {
+        VMSTATE_UINT32(env.cp15.c1_sys.normal, ARMCPU),
         VMSTATE_UINT32(env.cp15.c13_context.normal, ARMCPU),
         VMSTATE_UINT32(env.cp15.c13_fcse.normal, ARMCPU),
         VMSTATE_UINT32(env.cp15.c13_tls1.normal, ARMCPU),
