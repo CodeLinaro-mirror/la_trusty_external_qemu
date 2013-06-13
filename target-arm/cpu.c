@@ -287,6 +287,10 @@ static void arm_cpu_realizefn(DeviceState *dev, Error **errp)
 
     init_cpreg_list(cpu);
 
+#if !defined(CONFIG_USER_ONLY)
+    arm_semihosting_setmode(env);
+#endif
+
     cpu_reset(cs);
     qemu_init_vcpu(cs);
 
