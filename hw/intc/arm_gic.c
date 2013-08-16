@@ -114,11 +114,11 @@ static void gic_update_trustzone(GICState  *s, int cpu)
     for (irq = 0; irq < s->num_irq; irq++) {
         if (GIC_TEST_ENABLED(irq, cm) && GIC_TEST_PENDING(irq, cm)) {
             if (GIC_GET_PRIORITY(irq, cpu) < best_prio) {
-                if (GIC_TEST_SECURE(best_irq, cm) &&
+                if (GIC_TEST_SECURE(irq, cm) &&
                     (s->cpu_enabled[cpu] & 0x01)) {
                     best_prio = GIC_GET_PRIORITY(irq, cpu);
                     best_irq = irq;
-                } else if (!GIC_TEST_SECURE(best_irq, cm) &&
+                } else if (!GIC_TEST_SECURE(irq, cm) &&
                            (s->cpu_enabled[cpu] & 0x02)) {
                     best_prio = GIC_GET_PRIORITY(irq, cpu);
                     best_irq = irq;
