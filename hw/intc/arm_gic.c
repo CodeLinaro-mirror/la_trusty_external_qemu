@@ -596,14 +596,16 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
             if (value & (1 << i)) {
                 int mask =
                     (irq < GIC_INTERNAL) ? (1 << cpu) : GIC_TARGET(irq + i);
+                int emask =
+                    (irq < GIC_INTERNAL) ? (1 << cpu) : ALL_CPU_MASK;
 
                 /* NOTE: TrustZone: Secure interrupt is RAZ/WI for
                  * normal world */
                 if (!GIC_TEST_SECURE(irq + i, cm) || gic_is_secure_access(s)) {
-                    if (!GIC_TEST_ENABLED(irq + i, cm)) {
-                        DPRINTF("Enabled IRQ %d\n", irq + i);
+                    if (!GIC_TEST_ENABLED(irq + i, emask)) {
+                        DPRINTF("Enabled IRQ %d, cm %x\n", irq + i, emask);
                     }
-                    GIC_SET_ENABLED(irq + i, cm);
+                    GIC_SET_ENABLED(irq + i, emask);
                 }
 
                 /* If a raised level triggered IRQ enabled then mark
@@ -624,13 +626,15 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
           value = 0;
         for (i = 0; i < 8; i++) {
             if (value & (1 << i)) {
+                int emask =
+                    (irq < GIC_INTERNAL) ? (1 << cpu) : ALL_CPU_MASK;
                 /* NOTE: TrustZone: Secure interrupt is RAZ/WI for
                  * normal world */
                 if (!GIC_TEST_SECURE(irq + i, cm) || gic_is_secure_access(s)) {
-                    if (GIC_TEST_ENABLED(irq + i, cm)) {
-                        DPRINTF("Disabled IRQ %d\n", irq + i);
+                    if (GIC_TEST_ENABLED(irq + i, emask)) {
+                        DPRINTF("Disabled IRQ %d, cm %x\n", irq + i, emask);
                     }
-                    GIC_CLEAR_ENABLED(irq + i, cm);
+                    GIC_CLEAR_ENABLED(irq + i, emask);
                 } else if (GIC_TEST_ENABLED(irq + i, cm)) {
                     DPRINTF("Reject non-secure disable of IRQ %d\n",
                             irq + i);
