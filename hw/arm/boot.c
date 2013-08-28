@@ -380,6 +380,7 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
     QemuOpts *machine_opts;
     uint32_t *bootloader_start;
     size_t bootloader_size;
+    size_t tz_size;
 
     /* Load the kernel.  */
     if (!info->kernel_filename) {
@@ -390,6 +391,17 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
     machine_opts = qemu_get_machine_opts();
     info->dtb_filename = qemu_opt_get(machine_opts, "dtb");
     info->tz_filename = qemu_opt_get(machine_opts, "tz");
+    tz_size = qemu_opt_get_size(machine_opts, "tzmem", 0);
+
+    if (tz_size >= info->ram_size) {
+        fprintf(stderr, "qemu: tz_size, %ld, must be smaller than ram_size, %ld\n",
+                tz_size, info->ram_size);
+        exit(1);
+    }
+    if (info->tz_filename && !tz_size) {
+        tz_size = 2 * 1024 * 1024;
+    }
+    info->ram_size -= tz_size;
 
     if (!info->secondary_cpu_reset_hook) {
         info->secondary_cpu_reset_hook = default_reset_secondary;
@@ -498,7 +510,7 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
         }
         bootloader[BOOTLOADER_INDEX_KERNEL_PC] = entry;
         if (is_tz) {
-            bootloader[BOOTLOADER_INDEX_TZ_R0] = 1; // coldboot
+            bootloader[BOOTLOADER_INDEX_TZ_R0] = tz_size;
             bootloader[BOOTLOADER_INDEX_TZ_PC] = tz_elf_entry;
             bootloader_start = bootloader;
             bootloader_size = sizeof(bootloader);

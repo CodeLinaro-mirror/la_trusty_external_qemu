@@ -397,6 +397,10 @@ static QemuOptsList qemu_machine_opts = {
             .type = QEMU_OPT_STRING,
             .help = "TrustZone image file",
         }, {
+            .name = "tzmem",
+            .type = QEMU_OPT_SIZE,
+            .help = "TrustZone memory size",
+        }, {
             .name = "initrd",
             .type = QEMU_OPT_STRING,
             .help = "Linux initial ramdisk file",
@@ -3120,6 +3124,9 @@ int main(int argc, char **argv, char **envp)
                 break;
             case QEMU_OPTION_tz:
                 qemu_opts_set(qemu_find_opts("machine"), 0, "tz", optarg);
+                break;
+            case QEMU_OPTION_tzmem:
+                qemu_opts_set(qemu_find_opts("machine"), 0, "tzmem", optarg);
                 break;
             case QEMU_OPTION_dtb:
                 qemu_opts_set(qemu_find_opts("machine"), 0, "dtb", optarg);

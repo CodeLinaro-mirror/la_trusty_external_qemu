@@ -2369,6 +2369,14 @@ STEXI
 Use @var{tz} as TrustZone image. ARM only.
 ETEXI
 
+DEF("tzmem", HAS_ARG, QEMU_OPTION_tzmem, \
+    "-tzmem  size    memory to reserve for TrustZone [default=2M] (ARM only)\n", QEMU_ARCH_ARM)
+STEXI
+@item -tzmem @var{size}
+@findex -tzmem (ARM)
+Use @var{size} as TrustZone memory size. ARM only.
+ETEXI
+
 DEF("dtb", HAS_ARG, QEMU_OPTION_dtb, \
     "-dtb    file    use 'file' as device tree image\n", QEMU_ARCH_ALL)
 STEXI
