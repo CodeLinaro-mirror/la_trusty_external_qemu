@@ -365,6 +365,11 @@ static void do_cpu_reset(void *opaque)
     }
 }
 
+static uint64_t tz_elf_translate(void *arg, uint64_t addr)
+{
+    return *(uint64_t *)arg;
+}
+
 void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
 {
     CPUState *cs = CPU(cpu);
@@ -435,7 +440,8 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
     /* Try to load our TZ image first. If it exists, we'll use that as
      * the main entry and the kernel as secondary.
      */
-    if (load_elf(info->tz_filename, NULL, NULL, &tz_elf_entry,
+    tz_elf_entry = info->loader_start + info->ram_size;
+    if (load_elf(info->tz_filename, tz_elf_translate, &tz_elf_entry, NULL,
                  NULL, NULL, big_endian, ELF_MACHINE, 1) >= 0) {
         is_tz = 1;
     }
