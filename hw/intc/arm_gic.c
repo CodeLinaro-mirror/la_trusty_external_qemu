@@ -563,23 +563,25 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
 
         /* NOTE: TrustZone: Update interrupt security status */
         if (gic_is_secure_access(s)) {
+            int emask =
+                (irq < GIC_INTERNAL) ? (1 << cpu) : ALL_CPU_MASK;
             DPRINTF("WRITE ICDISR[IRQ%d..%d] <- 0x%02x\n", irq, irq + 7,
                     (unsigned) value);
             for (i = 0; i < 8; i++) {
                 int is_secure = !(value & (1 << i));
-                if (is_secure && !GIC_TEST_SECURE(irq + i, cm)) {
+                if (is_secure && !GIC_TEST_SECURE(irq + i, emask)) {
                     DPRINTF("Update security status of IRQ %d to %ssecure\n",
                             irq + i, is_secure ? "" : "non");
                 }
 
                 if (is_secure) {
-                    GIC_SET_SECURE(irq + i, cm);
+                    GIC_SET_SECURE(irq + i, emask);
                 } else {
-                    GIC_CLEAR_SECURE(irq + i, cm);
+                    GIC_CLEAR_SECURE(irq + i, emask);
                 }
 
                 DPRINTF(" IRQ%d is %ssecure\n", irq + i,
-                        GIC_TEST_SECURE(irq + i, cm) ? "" : "non");
+                        GIC_TEST_SECURE(irq + i, emask) ? "" : "non");
             }
         }
 
