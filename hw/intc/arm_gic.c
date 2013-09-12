@@ -286,9 +286,9 @@ uint32_t gic_acknowledge_irq(GICState *s, int cpu)
     secure_irq = GIC_TEST_SECURE(new_irq, cm);
     secure_access = gic_is_secure_access(s);
     if (!secure_irq) {
-        if (s->cpu_enabled[cpu] & 0x04) {
+        if (secure_access && !(s->cpu_enabled[cpu] & 0x04)) {
             DPRINTF("NACK to pending normal IRQ %d\n", new_irq);
-            return 1023;
+            return 1022;
         }
     } else if (!secure_access) {
         /* Can not acknowlegde a secure IRQ from normal world */
