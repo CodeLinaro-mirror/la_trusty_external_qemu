@@ -133,6 +133,10 @@ static void arm_gic_common_reset(DeviceState *dev)
         /* NOTE: TrustZone: Assume that all IRQs are secure */
         GIC_SET_SECURE(i, ALL_CPU_MASK);
     }
+    for (i = GIC_INTERNAL; i < GIC_MAXIRQ; ++i) {
+        /* SPIs use 1-N model. */
+        GIC_SET_MODEL(i);
+    }
     if (s->num_cpu == 1) {
         /* For uniprocessor GICs all interrupts always target the sole CPU */
         for (i = 0; i < GIC_MAXIRQ; i++) {

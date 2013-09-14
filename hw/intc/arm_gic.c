@@ -748,11 +748,13 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
         for (i = 0; i < 4; i++) {
             /* NOTE: TrustZone: Secure interrupt is RAZ/WI for normal world */
             if (!GIC_TEST_SECURE(irq + i, cm) || gic_is_secure_access(s)) {
+#if 0 /* reserved for gic v1 and gic v2 */
                 if (value & (1 << (i * 2))) {
                     GIC_SET_MODEL(irq + i);
                 } else {
                     GIC_CLEAR_MODEL(irq + i);
                 }
+#endif
                 if (value & (2 << (i * 2))) {
                     GIC_SET_TRIGGER(irq + i);
                 } else {
