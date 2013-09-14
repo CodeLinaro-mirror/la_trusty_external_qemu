@@ -733,6 +733,16 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
                     value = ALL_CPU_MASK;
                 }
                 s->irq_target[irq] = value & ALL_CPU_MASK;
+
+                /* If a raised level triggered IRQ is enabled then mark
+                   it as pending on target CPUs.  */
+                if (GIC_TEST_LEVEL(irq, value & ALL_CPU_MASK)
+                    && !GIC_TEST_TRIGGER(irq)
+                    && GIC_TEST_ENABLED(irq, value & ALL_CPU_MASK)) {
+                    DPRINTF("Set %d pending mask %x\n", irq, value & ALL_CPU_MASK);
+                    GIC_SET_PENDING(irq, value & ALL_CPU_MASK);
+                }
+                GIC_CLEAR_PENDING(irq, ~(value & ALL_CPU_MASK));
             } else {
                 DPRINTF("Reject non-secure target change of IRQ %d\n",
                         irq);
