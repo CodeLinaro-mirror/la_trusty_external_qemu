@@ -324,6 +324,10 @@ void gic_complete_irq(GICState *s, int cpu, int irq)
         DPRINTF("EOI %d not pending\n", irq);
         return; /* No active IRQ.  */
     }
+    /* 1-N model interrupts need to update pending state on all targets */
+    if (GIC_TEST_MODEL(irq)) {
+        cm = GIC_TARGET(irq);
+    }
     /* Mark level triggered interrupts as pending if they are still
        raised.  */
     if (!GIC_TEST_TRIGGER(irq) && GIC_TEST_ENABLED(irq, cm)
