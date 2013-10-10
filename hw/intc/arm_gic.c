@@ -20,7 +20,6 @@
 
 #include "hw/sysbus.h"
 #include "gic_internal.h"
-#include "qom/cpu.h"
 
 /*#define DEBUG_GIC*/
 #define GIC_SECURITY_EXTENSIONS
