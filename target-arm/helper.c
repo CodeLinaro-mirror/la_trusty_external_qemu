@@ -2090,6 +2090,9 @@ static int bad_mode_switch(CPUARMState *env, int mode)
     case ARM_CPU_MODE_IRQ:
     case ARM_CPU_MODE_FIQ:
         return 0;
+    case ARM_CPU_MODE_SMC:
+        /* NOTE: TrustZone: Only allowed in secure world */
+        return !arm_current_secure(env);
     default:
         return 1;
     }
