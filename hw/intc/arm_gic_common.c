@@ -59,13 +59,13 @@ static const VMStateDescription vmstate_gic_irq_state = {
 
 static const VMStateDescription vmstate_gic = {
     .name = "arm_gic",
-    .version_id = 4,
-    .minimum_version_id = 4,
+    .version_id = 5,
+    .minimum_version_id = 5,
     .pre_save = gic_pre_save,
     .post_load = gic_post_load,
     .fields = (VMStateField[]) {
         VMSTATE_BOOL(enabled, GICState),
-        VMSTATE_BOOL_ARRAY(cpu_enabled, GICState, NCPU),
+        VMSTATE_UINT8_ARRAY(cpu_enabled, GICState, NCPU),
         VMSTATE_STRUCT_ARRAY(irq_state, GICState, GIC_MAXIRQ, 1,
                              vmstate_gic_irq_state, gic_irq_state),
         VMSTATE_UINT8_ARRAY(irq_target, GICState, GIC_MAXIRQ),
@@ -123,7 +123,7 @@ static void arm_gic_common_reset(DeviceState *dev)
         s->current_pending[i] = 1023;
         s->running_irq[i] = 1023;
         s->running_priority[i] = 0x100;
-        s->cpu_enabled[i] = false;
+        s->cpu_enabled[i] = 0;
     }
     for (i = 0; i < 16; i++) {
         GIC_SET_ENABLED(i, ALL_CPU_MASK);
