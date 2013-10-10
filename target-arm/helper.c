@@ -2590,7 +2590,7 @@ void arm_cpu_do_interrupt(CPUState *cs)
         break;
     case EXCP_FIQ:
         addr = 0x1c;
-        if (env->cp15.c1_scr & SCR_IRQ) {
+        if (env->cp15.c1_scr & SCR_FIQ) {
           /* Trap to secure monitor mode. */
           new_mode = ARM_CPU_MODE_SMC;
           mask = CPSR_A | CPSR_I | CPSR_F;
