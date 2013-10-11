@@ -21,6 +21,7 @@
 #include "disas/disas.h"
 #include "tcg.h"
 #include "qemu/atomic.h"
+#include "qemu/timer.h"
 #include "sysemu/qtest.h"
 
 bool qemu_cpu_has_work(CPUState *cpu)
@@ -195,12 +196,51 @@ static void cpu_handle_debug_exception(CPUArchState *env)
     }
 }
 
+#if !defined(CONFIG_USER_ONLY)
+
+static bool cpu_thread_is_idle(CPUState *cpu)
+{
+    if (cpu->stop || cpu->queued_work_first) {
+        return false;
+    }
+    if (cpu_is_stopped(cpu)) {
+        return true;
+    }
+    if (!cpu->halted || qemu_cpu_has_work(cpu)) {
+        return false;
+    }
+    return true;
+}
+
+static bool all_other_cpu_threads_idle(CPUState *this_cpu)
+{
+    CPUState *cpu;
+
+    CPU_FOREACH(cpu) {
+        if (cpu != this_cpu && !cpu_thread_is_idle(cpu)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+#else
+
+static bool all_other_cpu_threads_idle(CPUState *this_cpu)
+{
+    return true;
+}
+
+#endif
+
 /* main execution loop */
 
 volatile sig_atomic_t exit_request;
 
 int cpu_exec(CPUArchState *env)
 {
+    bool check_timeout = false;
+    int64_t timeout;
     CPUState *cpu = ENV_GET_CPU(env);
 #if !(defined(CONFIG_USER_ONLY) && \
       (defined(TARGET_M68K) || defined(TARGET_PPC) || defined(TARGET_S390X)))
@@ -217,6 +257,11 @@ int cpu_exec(CPUArchState *env)
         }
 
         cpu->halted = 0;
+    }
+
+    if (!all_other_cpu_threads_idle(cpu)) {
+        check_timeout = true;
+        timeout = qemu_clock_get_ns(QEMU_CLOCK_REALTIME) + (20 * SCALE_MS);
     }
 
     current_cpu = cpu;
@@ -575,6 +620,12 @@ int cpu_exec(CPUArchState *env)
                     }
                 }
                 if (unlikely(cpu->exit_request)) {
+                    cpu->exit_request = 0;
+                    env->exception_index = EXCP_INTERRUPT;
+                    cpu_loop_exit(env);
+                }
+                if (unlikely(check_timeout)
+                    && (qemu_clock_get_ns(QEMU_CLOCK_REALTIME) - timeout) > 0) {
                     cpu->exit_request = 0;
                     env->exception_index = EXCP_INTERRUPT;
                     cpu_loop_exit(env);
