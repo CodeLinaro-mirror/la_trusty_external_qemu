@@ -225,6 +225,14 @@ void HELPER(wfi)(CPUARMState *env)
     cpu_loop_exit(env);
 }
 
+void HELPER(wfe)(CPUARMState *env)
+{
+    /* TODO: Implement WFE to actually wait for an event. For now, just give
+     * the next cpu a chance to run right away. */
+    env->exception_index = EXCP_HLT;
+    cpu_loop_exit(env);
+}
+
 void HELPER(exception)(CPUARMState *env, uint32_t excp)
 {
     env->exception_index = excp;
