@@ -2236,11 +2236,6 @@ int cpu_arm_handle_mmu_fault (CPUARMState *env, target_ulong address, int rw,
     return 1;
 }
 
-void cpu_set_tls(CPUARMState *env, target_ulong newtls)
-{
-    CP15_BANK32(env, c13_tls2, arm_current_secure(env)) = newtls;
-}
-
 /* These should probably raise undefined insn exceptions.  */
 void HELPER(v7m_msr)(CPUARMState *env, uint32_t reg, uint32_t val)
 {
