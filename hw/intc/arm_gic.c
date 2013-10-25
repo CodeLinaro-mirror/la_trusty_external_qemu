@@ -325,6 +325,7 @@ void gic_complete_irq(GICState *s, int cpu, int irq)
 {
     int update = 0;
     int cm = 1 << cpu;
+    int target = (irq < GIC_INTERNAL) ? cm : GIC_TARGET(irq);
     DPRINTF("EOI %d\n", irq);
     if (irq >= s->num_irq) {
         /* This handles two cases:
@@ -348,7 +349,7 @@ void gic_complete_irq(GICState *s, int cpu, int irq)
     /* Mark level triggered interrupts as pending if they are still
        raised.  */
     if (!GIC_TEST_TRIGGER(irq) && GIC_TEST_ENABLED(irq, cm)
-        && GIC_TEST_LEVEL(irq, cm) && (GIC_TARGET(irq) & cm) != 0) {
+        && GIC_TEST_LEVEL(irq, cm) && (target & cm) != 0) {
         DPRINTF("Set %d pending mask %x\n", irq, cm);
         GIC_SET_PENDING(irq, cm);
         update = 1;
