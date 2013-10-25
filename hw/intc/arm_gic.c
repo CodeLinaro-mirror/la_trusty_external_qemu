@@ -753,26 +753,28 @@ static void gic_dist_writeb(void *opaque, hwaddr offset,
         irq = (offset - 0xc00) * 4 + GIC_BASE_IRQ;
         if (irq >= s->num_irq)
             goto bad_reg;
-        if (irq < GIC_INTERNAL)
-            value |= 0xaa;
-        for (i = 0; i < 4; i++) {
-            /* NOTE: TrustZone: Secure interrupt is RAZ/WI for normal world */
-            if (!GIC_TEST_SECURE(irq + i, cm) || gic_is_secure_access(s)) {
+        if (irq < GIC_INTERNAL) {
+            DPRINTF("Reject configuration change of internal IRQ %d\n", irq);
+        } else {
+            for (i = 0; i < 4; i++) {
+                /* NOTE: TrustZone: Secure interrupt is RAZ/WI for normal world */
+                if (!GIC_TEST_SECURE(irq + i, cm) || gic_is_secure_access(s)) {
 #if 0 /* reserved for gic v1 and gic v2 */
-                if (value & (1 << (i * 2))) {
-                    GIC_SET_MODEL(irq + i);
-                } else {
-                    GIC_CLEAR_MODEL(irq + i);
-                }
+                    if (value & (1 << (i * 2))) {
+                        GIC_SET_MODEL(irq + i);
+                    } else {
+                        GIC_CLEAR_MODEL(irq + i);
+                    }
 #endif
-                if (value & (2 << (i * 2))) {
-                    GIC_SET_TRIGGER(irq + i);
+                    if (value & (2 << (i * 2))) {
+                        GIC_SET_TRIGGER(irq + i);
+                    } else {
+                        GIC_CLEAR_TRIGGER(irq + i);
+                    }
                 } else {
-                    GIC_CLEAR_TRIGGER(irq + i);
+                    DPRINTF("Reject non-secure configuration change of IRQ %d\n",
+                            irq + i);
                 }
-            } else {
-                DPRINTF("Reject non-secure configuration change of IRQ %d\n",
-                        irq + i);
             }
         }
     } else {
