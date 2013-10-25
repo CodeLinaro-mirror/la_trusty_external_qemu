@@ -270,13 +270,26 @@ static void gic_set_running_irq(GICState *s, int cpu, int irq)
     gic_update(s);
 }
 
-uint32_t gic_acknowledge_irq(GICState *s, int cpu)
+static uint32_t gic_get_highest_pending(GICState *s, int cpu, int secure)
+{
+    int cm = 1 << cpu;
+    int irq = s->current_pending[cpu];
+
+    if (irq == 1023)
+        return irq;
+
+    if (GIC_TEST_SECURE(irq, cm))
+        return secure ? irq : 1023;
+    else
+        return (!secure || (s->cpu_enabled[cpu] & 0x04)) ? irq : 1022;
+}
+
+static uint32_t _gic_acknowledge_irq(GICState *s, int cpu, int secure_access)
 {
     /* TODO: TrustZone: Determine correct IRQ */
     int new_irq;
     int cm = 1 << cpu;
     int secure_irq;
-    int secure_access;
     new_irq = s->current_pending[cpu];
     if (new_irq == 1023
             || GIC_GET_PRIORITY(new_irq, cpu) >= s->running_priority[cpu]) {
@@ -284,7 +297,6 @@ uint32_t gic_acknowledge_irq(GICState *s, int cpu)
     }
     /* NOTE: TrustZone: ACK filter */
     secure_irq = GIC_TEST_SECURE(new_irq, cm);
-    secure_access = gic_is_secure_access(s);
     if (!secure_irq) {
         if (secure_access && !(s->cpu_enabled[cpu] & 0x04)) {
             DPRINTF("NACK to pending normal IRQ %d\n", new_irq);
@@ -302,6 +314,11 @@ uint32_t gic_acknowledge_irq(GICState *s, int cpu)
     gic_set_running_irq(s, cpu, new_irq);
     DPRINTF("ACK %d\n", new_irq);
     return new_irq;
+}
+
+uint32_t gic_acknowledge_irq(GICState *s, int cpu)
+{
+        return _gic_acknowledge_irq(s, cpu, gic_is_secure_access(s));
 }
 
 void gic_complete_irq(GICState *s, int cpu, int irq)
@@ -856,11 +873,15 @@ static uint32_t gic_cpu_read(GICState *s, int cpu, int offset)
         /* ??? Not implemented.  */
         return 0;
     case 0x0c: /* Acknowledge */
-        return gic_acknowledge_irq(s, cpu);
+        return _gic_acknowledge_irq(s, cpu, gic_is_secure_access(s));
     case 0x14: /* Running Priority */
         return s->running_priority[cpu];
     case 0x18: /* Highest Pending Interrupt */
-        return s->current_pending[cpu];
+        return gic_get_highest_pending(s, cpu, gic_is_secure_access(s));
+    case 0x20: /* Aliased Interrupt Acknowledge */
+        return gic_is_secure_access(s) ? _gic_acknowledge_irq(s, cpu, 0) : 0;
+    case 0x28: /* Aliased Highest Priority Pending Interrupt */
+        return gic_is_secure_access(s) ? gic_get_highest_pending(s, cpu, 0) : 0;
     default:
         qemu_log_mask(LOG_GUEST_ERROR,
                       "gic_cpu_read: Bad offset %x\n", (int)offset);
@@ -904,6 +925,10 @@ static void gic_cpu_write(GICState *s, int cpu, int offset, uint32_t value)
         break;
     case 0x10: /* End Of Interrupt */
         return gic_complete_irq(s, cpu, value & 0x3ff);
+    case 0x24: /* Aliased End Of Interrupt */
+        if (gic_is_secure_access(s))
+            return gic_complete_irq(s, cpu, value & 0x3ff);
+        break;
     default:
         qemu_log_mask(LOG_GUEST_ERROR,
                       "gic_cpu_write: Bad offset %x\n", (int)offset);
