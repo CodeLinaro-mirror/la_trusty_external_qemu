@@ -110,9 +110,10 @@ typedef struct ARMGenericTimer {
     uint32_t ctl; /* Timer Control register */
 } ARMGenericTimer;
 
-#define GTIMER_PHYS 0
-#define GTIMER_VIRT 1
-#define NUM_GTIMERS 2
+#define GTIMER_PHYS_NS 0
+#define GTIMER_PHYS_S 1
+#define GTIMER_VIRT 2
+#define NUM_GTIMERS 3
 
 /* Scale factor for generic timers, ie number of ns per tick.
  * This gives a 62.5MHz timer.

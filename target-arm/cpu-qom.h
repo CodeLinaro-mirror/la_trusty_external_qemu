@@ -170,7 +170,8 @@ int arm_cpu_gdb_read_register(CPUState *cpu, uint8_t *buf, int reg);
 int arm_cpu_gdb_write_register(CPUState *cpu, uint8_t *buf, int reg);
 
 /* Callback functions for the generic timer's timers. */
-void arm_gt_ptimer_cb(void *opaque);
+void arm_gt_pnstimer_cb(void *opaque);
+void arm_gt_pstimer_cb(void *opaque);
 void arm_gt_vtimer_cb(void *opaque);
 
 #ifdef TARGET_AARCH64

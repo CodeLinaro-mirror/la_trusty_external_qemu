@@ -759,7 +759,9 @@ static int gt_cntfrq_read(CPUARMState *env, const ARMCPRegInfo *ri,
 static void gt_cnt_reset(CPUARMState *env, const ARMCPRegInfo *ri)
 {
     ARMCPU *cpu = arm_env_get_cpu(env);
-    int timeridx = ri->opc1 & 1;
+    int is_secure = CPREG_IS_SECURE(ri);
+    int timeridx = (ri->crm & 1) ? GTIMER_VIRT :
+                                   (is_secure ? GTIMER_PHYS_S : GTIMER_PHYS_NS);
 
     timer_del(cpu->gt_timer[timeridx]);
 }
@@ -767,7 +769,9 @@ static void gt_cnt_reset(CPUARMState *env, const ARMCPRegInfo *ri)
 static int gt_cnt_read(CPUARMState *env, const ARMCPRegInfo *ri,
                        uint64_t *value)
 {
-    int timeridx = ri->opc1 & 1;
+    int is_secure = CPREG_IS_SECURE(ri);
+    int timeridx = (ri->crm & 1) ? GTIMER_VIRT :
+                                   (is_secure ? GTIMER_PHYS_S : GTIMER_PHYS_NS);
 
     if (arm_current_pl(env) == 0 &&
         !extract32(env->cp15.c14_cntkctl, timeridx, 1)) {
@@ -780,7 +784,8 @@ static int gt_cnt_read(CPUARMState *env, const ARMCPRegInfo *ri,
 static int gt_cval_read(CPUARMState *env, const ARMCPRegInfo *ri,
                         uint64_t *value)
 {
-    int timeridx = ri->opc1 & 1;
+    int bank = arm_current_secure(env);
+    int timeridx = (ri->crm & 1) ? GTIMER_VIRT : bank;
 
     if (arm_current_pl(env) == 0 &&
         !extract32(env->cp15.c14_cntkctl, 9 - timeridx, 1)) {
@@ -793,7 +798,8 @@ static int gt_cval_read(CPUARMState *env, const ARMCPRegInfo *ri,
 static int gt_cval_write(CPUARMState *env, const ARMCPRegInfo *ri,
                          uint64_t value)
 {
-    int timeridx = ri->opc1 & 1;
+    int bank = arm_current_secure(env);
+    int timeridx = (ri->crm & 1) ? GTIMER_VIRT : bank;
 
     env->cp15.c14_timer[timeridx].cval = value;
     gt_recalc_timer(arm_env_get_cpu(env), timeridx);
@@ -802,7 +808,8 @@ static int gt_cval_write(CPUARMState *env, const ARMCPRegInfo *ri,
 static int gt_tval_read(CPUARMState *env, const ARMCPRegInfo *ri,
                         uint64_t *value)
 {
-    int timeridx = ri->crm & 1;
+    int bank = arm_current_secure(env);
+    int timeridx = (ri->crm & 1) ? GTIMER_VIRT : bank;
 
     if (arm_current_pl(env) == 0 &&
         !extract32(env->cp15.c14_cntkctl, 9 - timeridx, 1)) {
@@ -816,7 +823,8 @@ static int gt_tval_read(CPUARMState *env, const ARMCPRegInfo *ri,
 static int gt_tval_write(CPUARMState *env, const ARMCPRegInfo *ri,
                          uint64_t value)
 {
-    int timeridx = ri->crm & 1;
+    int bank = arm_current_secure(env);
+    int timeridx = (ri->crm & 1) ? GTIMER_VIRT : bank;
 
     env->cp15.c14_timer[timeridx].cval = gt_get_countervalue(env) +
         + sextract64(value, 0, 32);
@@ -827,7 +835,8 @@ static int gt_tval_write(CPUARMState *env, const ARMCPRegInfo *ri,
 static int gt_ctl_read(CPUARMState *env, const ARMCPRegInfo *ri,
                        uint64_t *value)
 {
-    int timeridx = ri->crm & 1;
+    int bank = arm_current_secure(env);
+    int timeridx = (ri->crm & 1) ? GTIMER_VIRT : bank;
 
     if (arm_current_pl(env) == 0 &&
         !extract32(env->cp15.c14_cntkctl, 9 - timeridx, 1)) {
@@ -841,7 +850,8 @@ static int gt_ctl_write(CPUARMState *env, const ARMCPRegInfo *ri,
                         uint64_t value)
 {
     ARMCPU *cpu = arm_env_get_cpu(env);
-    int timeridx = ri->crm & 1;
+    int bank = arm_current_secure(env);
+    int timeridx = (ri->crm & 1) ? GTIMER_VIRT : bank;
     uint32_t oldval = env->cp15.c14_timer[timeridx].ctl;
 
     env->cp15.c14_timer[timeridx].ctl = value & 3;
@@ -858,11 +868,18 @@ static int gt_ctl_write(CPUARMState *env, const ARMCPRegInfo *ri,
     return 0;
 }
 
-void arm_gt_ptimer_cb(void *opaque)
+void arm_gt_pnstimer_cb(void *opaque)
 {
     ARMCPU *cpu = opaque;
 
-    gt_recalc_timer(cpu, GTIMER_PHYS);
+    gt_recalc_timer(cpu, GTIMER_PHYS_NS);
+}
+
+void arm_gt_pstimer_cb(void *opaque)
+{
+    ARMCPU *cpu = opaque;
+
+    gt_recalc_timer(cpu, GTIMER_PHYS_S);
 }
 
 void arm_gt_vtimer_cb(void *opaque)
@@ -892,7 +909,7 @@ static const ARMCPRegInfo generic_timer_cp_reginfo[] = {
     /* per-timer control */
     { .name = "CNTP_CTL", .cp = 15, .crn = 14, .crm = 2, .opc1 = 0, .opc2 = 1,
       .type = ARM_CP_IO, .access = PL1_RW | PL0_R,
-      .fieldoffset = offsetof(CPUARMState, cp15.c14_timer[GTIMER_PHYS].ctl),
+      .fieldoffset = offsetof(CPUARMState, cp15.c14_timer[GTIMER_PHYS_NS].ctl),
       .resetvalue = 0,
       .readfn = gt_ctl_read, .writefn = gt_ctl_write,
       .raw_readfn = raw_read, .raw_writefn = raw_write,
@@ -915,7 +932,7 @@ static const ARMCPRegInfo generic_timer_cp_reginfo[] = {
     },
     /* The counter itself */
     { .name = "CNTPCT", .cp = 15, .crm = 14, .opc1 = 0,
-      .access = PL0_R, .type = ARM_CP_64BIT | ARM_CP_NO_MIGRATE | ARM_CP_IO,
+      .access = PL0_R, .type = ARM_CP_64BIT | ARM_CP_NO_MIGRATE | ARM_CP_IO | ARM_CP_BANKED,
       .readfn = gt_cnt_read, .resetfn = gt_cnt_reset,
     },
     { .name = "CNTVCT", .cp = 15, .crm = 14, .opc1 = 1,
@@ -926,7 +943,7 @@ static const ARMCPRegInfo generic_timer_cp_reginfo[] = {
     { .name = "CNTP_CVAL", .cp = 15, .crm = 14, .opc1 = 2,
       .access = PL1_RW | PL0_R,
       .type = ARM_CP_64BIT | ARM_CP_IO,
-      .fieldoffset = offsetof(CPUARMState, cp15.c14_timer[GTIMER_PHYS].cval),
+      .fieldoffset = offsetof(CPUARMState, cp15.c14_timer[GTIMER_PHYS_NS].cval),
       .resetvalue = 0,
       .readfn = gt_cval_read, .writefn = gt_cval_write,
       .raw_readfn = raw_read, .raw_writefn = raw_write,

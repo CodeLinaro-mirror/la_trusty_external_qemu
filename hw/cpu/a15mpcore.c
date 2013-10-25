@@ -74,13 +74,14 @@ static int a15mp_priv_init(SysBusDevice *dev)
     for (i = 0; i < s->num_cpu; i++) {
         DeviceState *cpudev = DEVICE(qemu_get_cpu(i));
         int ppibase = s->num_irq - 32 + i * 32;
-        /* physical timer; we wire it up to the non-secure timer's ID,
-         * since a real A15 always has TrustZone but QEMU doesn't.
-         */
+        /* non-secure physical timer */
         qdev_connect_gpio_out(cpudev, 0,
                               qdev_get_gpio_in(s->gic, ppibase + 30));
-        /* virtual timer */
+        /* secure physical timer */
         qdev_connect_gpio_out(cpudev, 1,
+                              qdev_get_gpio_in(s->gic, ppibase + 29));
+        /* virtual timer */
+        qdev_connect_gpio_out(cpudev, 2,
                               qdev_get_gpio_in(s->gic, ppibase + 27));
     }
 
