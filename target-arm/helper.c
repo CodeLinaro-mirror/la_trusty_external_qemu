@@ -1528,6 +1528,14 @@ static const ARMCPRegInfo lpae_cp_reginfo[] = {
     /* NOP AMAIR0/1: the override is because these clash with the rather
      * broadly specified TLB_LOCKDOWN entry in the generic cp_reginfo.
      */
+    { .name = "MAIR0", .cp = 15, .crn = 10, .crm = 2, .opc1 = 0, .opc2 = 0,
+      .access = PL1_RW, .type = ARM_CP_OVERRIDE | ARM_CP_BANKED,
+      .fieldoffset = offsetof(CPUARMState, cp15.c10_mair0),
+      .resetvalue = 0 },
+    { .name = "MAIR1", .cp = 15, .crn = 10, .crm = 2, .opc1 = 0, .opc2 = 1,
+      .access = PL1_RW, .type = ARM_CP_OVERRIDE | ARM_CP_BANKED,
+      .fieldoffset = offsetof(CPUARMState, cp15.c10_mair1),
+      .resetvalue = 0 },
     { .name = "AMAIR0", .cp = 15, .crn = 10, .crm = 3, .opc1 = 0, .opc2 = 0,
       .access = PL1_RW, .type = ARM_CP_CONST | ARM_CP_OVERRIDE,
       .resetvalue = 0 },
@@ -1543,11 +1551,11 @@ static const ARMCPRegInfo lpae_cp_reginfo[] = {
       .access = PL1_RW, .type = ARM_CP_64BIT,
       .readfn = par64_read, .writefn = par64_write, .resetfn = par64_reset },
     { .name = "TTBR0", .cp = 15, .crm = 2, .opc1 = 0,
-      .access = PL1_RW, .type = ARM_CP_64BIT, .readfn = ttbr064_read,
+      .access = PL1_RW, .type = ARM_CP_64BIT | ARM_CP_BANKED, .readfn = ttbr064_read,
       .writefn = ttbr064_write, .raw_writefn = ttbr064_raw_write,
       .resetfn = ttbr064_reset },
     { .name = "TTBR1", .cp = 15, .crm = 2, .opc1 = 1,
-      .access = PL1_RW, .type = ARM_CP_64BIT, .readfn = ttbr164_read,
+      .access = PL1_RW, .type = ARM_CP_64BIT | ARM_CP_BANKED, .readfn = ttbr164_read,
       .writefn = ttbr164_write, .resetfn = ttbr164_reset },
     REGINFO_SENTINEL
 };
